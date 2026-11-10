@@ -11,9 +11,10 @@ type Props = {
   logoutAtBottom?: boolean;
   children: ReactNode;
   footerContent?: ReactNode;
+  logoutRedirectTo?: string;
 };
 
-export function AreaShell({ children, compact = false, footerContent }: Props) {
+export function AreaShell({ children, compact = false, footerContent, logoutRedirectTo = "/login" }: Props) {
   return (
     <main className={`area-page${compact ? " area-page-compact" : ""}`}>
       <SiteHeader />
@@ -23,7 +24,7 @@ export function AreaShell({ children, compact = false, footerContent }: Props) {
         style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px 0 32px", width: "100%" }}
       >
         {footerContent}
-        <LogoutButton />
+        <LogoutButton redirectTo={logoutRedirectTo} />
       </footer>
     </main>
   );

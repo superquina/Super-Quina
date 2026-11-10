@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ThermalReceipt } from "@/components/receipts/thermal-receipt";
+import { ThermalBluetoothPrinter } from "@/components/receipts/thermal-bluetooth-printer";
 import type { ThermalReceiptEntry } from "@/components/receipts/thermal-receipt-types";
 
 type ReceiptData = {
@@ -108,6 +109,7 @@ export function PlayerPurchaseReceipt({ purchaseId, autoOpen = false, onClose }:
         <div className="modal-backdrop" role="presentation">
           <section className="modal-panel receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-heading">
             <h2 id="receipt-heading">Recibo oficial</h2>
+            <ThermalBluetoothPrinter purchaseId={purchaseId} />
             <ThermalReceipt
               receiptCode={receipt.data.receiptCode}
               paymentStatus={receipt.data.paymentStatus}

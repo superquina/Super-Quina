@@ -20,10 +20,7 @@ const profileSchema = z.object({
   username: z.string().trim().min(3).max(24).regex(/^[A-Za-z0-9_.-]+$/),
   password: z.string().min(6).max(1024),
   whatsapp: z.string().trim().min(10).max(24),
-  city: z.string().trim().max(120).optional().default(""),
-  address: z.string().trim().max(200).optional().default(""),
-  referencePoint: z.string().trim().max(200).optional().default(""),
-  suppliesMaterial: z.boolean().optional().default(false),
+  commissionPercent: z.number().finite().min(0).max(100).refine((value) => Number.isInteger(value * 100), "Use até duas casas decimais."),
 }).strict();
 
 function normalizeWhatsapp(value: string) {
@@ -51,7 +48,7 @@ export async function GET(request: NextRequest) {
       authPrisma.user.count({ where }),
       authPrisma.user.findMany({
         where,
-        select: { id: true, username: true, fullName: true, whatsapp: true, city: true, address: true, referencePoint: true, suppliesMaterial: true, commissionRateBasisPoints: true, status: true, mustChangePassword: true, createdAt: true },
+        select: { id: true, username: true, fullName: true, whatsapp: true, commissionRateBasisPoints: true, status: true, mustChangePassword: true, createdAt: true },
         orderBy: [{ status: "asc" }, { username: "asc" }, { id: "asc" }],
         skip: (requestedPage - 1) * requestedLimit,
         take: requestedLimit,
@@ -90,7 +87,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Dados inválidos." }, { status: 400, headers }); }
   const parsed = profileSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: "Informe nome completo, usuário válido, senha com pelo menos 6 caracteres e WhatsApp válidos." }, { status: 400, headers });
+  if (!parsed.success) return NextResponse.json({ error: "Informe nome completo, usuário válido, senha com pelo menos 6 caracteres, WhatsApp e comissão de 0% a 100%." }, { status: 400, headers });
   const whatsapp = normalizeWhatsapp(parsed.data.whatsapp);
   if (whatsapp.length < 10 || whatsapp.length > 15) return NextResponse.json({ error: "Informe um WhatsApp válido com DDD e código do país, se aplicável." }, { status: 400, headers });
   const username = parsed.data.username.toLowerCase();
@@ -101,15 +98,13 @@ export async function POST(request: NextRequest) {
         data: {
           username, passwordHash, role: "CASHIER", status: "ACTIVE", mustChangePassword: true,
           fullName: parsed.data.fullName, whatsapp,
-          city: parsed.data.city || null, address: parsed.data.address || null, referencePoint: parsed.data.referencePoint || null,
-          suppliesMaterial: parsed.data.suppliesMaterial,
-          commissionRateBasisPoints: parsed.data.suppliesMaterial ? 1000 : 2000,
+          commissionRateBasisPoints: Math.round(parsed.data.commissionPercent * 100),
         },
-        select: { id: true, username: true, fullName: true, whatsapp: true, city: true, address: true, referencePoint: true, suppliesMaterial: true, commissionRateBasisPoints: true, status: true, createdAt: true },
+        select: { id: true, username: true, fullName: true, whatsapp: true, commissionRateBasisPoints: true, status: true, createdAt: true },
       });
       await tx.auditEvent.create({ data: {
         actorId: auth.user.id, action: "CASHIER_CREATED", entityType: "User", entityId: created.id,
-        metadata: { username: created.username, fullName: created.fullName, whatsapp: created.whatsapp, city: created.city, address: created.address, referencePoint: created.referencePoint, suppliesMaterial: created.suppliesMaterial, commissionRateBasisPoints: created.commissionRateBasisPoints },
+        metadata: { username: created.username, fullName: created.fullName, whatsapp: created.whatsapp, commissionRateBasisPoints: created.commissionRateBasisPoints },
       } });
       return created;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

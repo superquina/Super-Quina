@@ -18,8 +18,8 @@ function request(method = "GET", body?: unknown, origin = "https://example.test"
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
 }
-const profile = { fullName: "Cashier Test", username: "Cashier.One", password: "secret123", whatsapp: "+55 (77) 99123-4567", suppliesMaterial: true };
-const created = { id: "cashier-123456", username: "cashier.one", fullName: "Cashier Test", whatsapp: "5577991234567", suppliesMaterial: true, commissionRateBasisPoints: 1000, status: "ACTIVE", createdAt: new Date("2026-01-01T00:00:00Z") };
+const profile = { fullName: "Cashier Test", username: "Cashier.One", password: "secret123", whatsapp: "+55 (77) 99123-4567", commissionPercent: 5.5 };
+const created = { id: "cashier-123456", username: "cashier.one", fullName: "Cashier Test", whatsapp: "5577991234567", commissionRateBasisPoints: 550, status: "ACTIVE", createdAt: new Date("2026-01-01T00:00:00Z") };
 
 describe("admin cashiers collection API", () => {
   beforeEach(() => {
@@ -45,7 +45,7 @@ describe("admin cashiers collection API", () => {
     const response = await GET(request());
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(await response.json()).toMatchObject({ cashiers: [{ id: created.id, commissionPercent: 10 }], pagination: { page: 1, limit: 50, total: 1, totalPages: 1, hasPreviousPage: false, hasNextPage: false } });
+    expect(await response.json()).toMatchObject({ cashiers: [{ id: created.id, commissionPercent: 5.5 }], pagination: { page: 1, limit: 50, total: 1, totalPages: 1, hasPreviousPage: false, hasNextPage: false } });
     expect(mocks.userCount).toHaveBeenCalledWith({ where: { role: "CASHIER" } });
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { role: "CASHIER" }, skip: 0, take: 50, orderBy: [{ status: "asc" }, { username: "asc" }, { id: "asc" }] }));
   });
@@ -73,11 +73,11 @@ describe("admin cashiers collection API", () => {
   it("creates a cashier with normalized username and WhatsApp and records audit", async () => {
     const response = await POST(request("POST", profile));
     expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({ cashier: { id: created.id, commissionPercent: 10 } });
+    expect(await response.json()).toMatchObject({ cashier: { id: created.id, commissionPercent: 5.5 } });
     expect(mocks.hashPassword).toHaveBeenCalledWith(profile.password);
     expect(mocks.userCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
       username: "cashier.one", passwordHash: "hashed-password", role: "CASHIER",
-      whatsapp: "5577991234567", suppliesMaterial: true, commissionRateBasisPoints: 1000, mustChangePassword: true,
+      whatsapp: "5577991234567", commissionRateBasisPoints: 550, mustChangePassword: true,
     }), select: expect.any(Object) });
     expect(mocks.auditCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ actorId: "admin-1", action: "CASHIER_CREATED" }) });
   });

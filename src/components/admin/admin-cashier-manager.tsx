@@ -7,10 +7,6 @@ type Cashier = {
   username: string;
   fullName: string | null;
   whatsapp: string | null;
-  city: string | null;
-  address: string | null;
-  referencePoint: string | null;
-  suppliesMaterial: boolean;
   commissionRateBasisPoints: number;
   commissionPercent: number;
   status: "ACTIVE" | "BLOCKED" | "PENDING";
@@ -25,15 +21,12 @@ type FormState = {
   username: string;
   password: string;
   whatsapp: string;
-  city: string;
-  address: string;
-  referencePoint: string;
-  suppliesMaterial: boolean;
+  commissionPercent: string;
   status: "ACTIVE" | "BLOCKED";
 };
 
 const emptyForm: FormState = {
-  fullName: "", username: "", password: "", whatsapp: "", city: "", address: "", referencePoint: "", suppliesMaterial: false, status: "ACTIVE",
+  fullName: "", username: "", password: "", whatsapp: "", commissionPercent: "20", status: "ACTIVE",
 };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -81,10 +74,7 @@ export function AdminCashierManager({ mode }: { mode: "create" | "manage" }) {
       username: cashier.username,
       password: "",
       whatsapp: cashier.whatsapp ?? "",
-      city: cashier.city ?? "",
-      address: cashier.address ?? "",
-      referencePoint: cashier.referencePoint ?? "",
-      suppliesMaterial: cashier.suppliesMaterial,
+      commissionPercent: String(cashier.commissionPercent),
       status: cashier.status === "BLOCKED" ? "BLOCKED" : "ACTIVE",
     });
     setError(""); setNotice("");
@@ -97,6 +87,10 @@ export function AdminCashierManager({ mode }: { mode: "create" | "manage" }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setNotice("");
+    const commissionPercent = Number(form.commissionPercent);
+    if (!Number.isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) {
+      setError("A comissão precisa estar entre 0% e 100%."); return;
+    }
     if (!editingId && form.password.length < 6) {
       setError("A senha inicial precisa ter pelo menos 6 caracteres."); return;
     }
@@ -104,8 +98,7 @@ export function AdminCashierManager({ mode }: { mode: "create" | "manage" }) {
     try {
       const payload: Record<string, unknown> = {
         fullName: form.fullName, username: form.username, whatsapp: form.whatsapp,
-        city: form.city, address: form.address, referencePoint: form.referencePoint,
-        suppliesMaterial: form.suppliesMaterial,
+        commissionPercent,
       };
       // The create API uses a strict schema and intentionally does not accept
       // status: new cashiers are created ACTIVE on the server. Status is only
@@ -146,20 +139,9 @@ export function AdminCashierManager({ mode }: { mode: "create" | "manage" }) {
       <label>WhatsApp
         <input autoComplete="tel" type="tel" value={form.whatsapp} onChange={(event) => setForm({ ...form, whatsapp: event.target.value })} minLength={10} maxLength={24} required />
       </label>
-      <label>Cidade
-        <input autoComplete="address-level2" value={form.city} onChange={(event) => setForm({ ...form, city: event.target.value })} maxLength={120} />
+      <label>Comissão individual (%)
+        <input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} required />
       </label>
-      <label>Endereço
-        <input autoComplete="street-address" value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} maxLength={200} />
-      </label>
-      <label>Ponto de referência
-        <input value={form.referencePoint} onChange={(event) => setForm({ ...form, referencePoint: event.target.value })} maxLength={200} placeholder="Ex.: próximo à praça, ao lado da farmácia" />
-      </label>
-      <fieldset>
-        <legend>Fornecimento de material</legend>
-        <label><input type="checkbox" checked={form.suppliesMaterial} onChange={(event) => setForm({ ...form, suppliesMaterial: event.target.checked })} /> Forneço material</label>
-        <p>Comissão automática: {form.suppliesMaterial ? "10% (com fornecimento de material)" : "20% (sem fornecimento de material)"}</p>
-      </fieldset>
       {editingId && <label>Status da conta
         <select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as FormState["status"] })}>
           <option value="ACTIVE">Ativa</option>
@@ -185,9 +167,7 @@ export function AdminCashierManager({ mode }: { mode: "create" | "manage" }) {
         <div>
           <a className="admin-cashier-name-link" href={"/admin/cashiers/" + encodeURIComponent(cashier.id)}><strong>{cashier.fullName || cashier.username}</strong> — Ver financeiro e histórico</a>
           <p>Usuário: {cashier.username} · WhatsApp: {cashier.whatsapp || "Não informado"}</p>
-          <p>Cidade: {cashier.city || "Não informada"} · Endereço: {cashier.address || "Não informado"}</p>
-          <p>Ponto de referência: {cashier.referencePoint || "Não informado"}</p>
-          <p>Fornece material: {cashier.suppliesMaterial ? "Sim" : "Não"} · Comissão automática: <strong>{cashier.commissionPercent.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</strong> · Status: {cashier.status === "ACTIVE" ? "Ativo" : cashier.status === "BLOCKED" ? "Bloqueado" : "Pendente"}</p>
+          <p>Comissão individual: <strong>{cashier.commissionPercent.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</strong> · Status: {cashier.status === "ACTIVE" ? "Ativo" : cashier.status === "BLOCKED" ? "Bloqueado" : "Pendente"}</p>
           <p>Cadastro: {new Date(cashier.createdAt).toLocaleDateString("pt-BR")}{cashier.mustChangePassword ? " · Troca de senha no primeiro acesso" : ""}</p>
         </div>
         <button type="button" className="secondary-button" disabled={busy} onClick={() => beginEdit(cashier)}>Editar cadastro</button>

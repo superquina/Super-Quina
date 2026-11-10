@@ -35,6 +35,25 @@ describe("encodeThermalReceipt", () => {
     expect(Array.from(bytes.slice(-3))).toEqual([0x0a, 0x0a, 0x0a]);
   });
 
+  it("encodes the official receipt verification QR using ESC/POS", () => {
+    const bytes = encodeThermalReceipt(receipt, { ...profile, qrCode: true });
+    const sequence = [0x1d, 0x28, 0x6b];
+    expect(Array.from(bytes).some((_, index) => sequence.every((value, offset) => bytes[index + offset] === value))).toBe(true);
+    expect(new TextDecoder().decode(bytes)).toContain("https://superquina.com/verificar-recibo/SQ-1234567890ABCDEF");
+  });
+
+  it("formats receipt timestamps in Sao Paulo time", () => {
+    const bytes = encodeThermalReceipt(receipt, profile);
+    const text = new TextDecoder().decode(bytes);
+    expect(text).toContain("05/11/2026 09:30");
+    expect(text).toContain("05/11/2026 10:00");
+  });
+
+  it("selects ESC/POS font B for narrow-column profiles", () => {
+    const bytes = encodeThermalReceipt(receipt, { ...profile, fontMode: "B" });
+    expect(Array.from(bytes.slice(0, 5))).toEqual([0x1b, 0x40, 0x1b, 0x4d, 0x01]);
+  });
+
   it("uses an explicitly configured character map and code page", () => {
     const bytes = encodeThermalReceipt(receipt, {
       ...profile,

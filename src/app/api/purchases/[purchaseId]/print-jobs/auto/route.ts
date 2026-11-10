@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({
       created: result.created,
       job: { id: result.job.id, status: result.job.status, purpose: result.job.purpose },
-      maySend: result.created || result.job.status === "RESERVED",
+      maySend: result.created,
     }, { status: result.created ? 201 : 200, headers });
   } catch (error) {
     if (error instanceof PrintJobServiceError) {

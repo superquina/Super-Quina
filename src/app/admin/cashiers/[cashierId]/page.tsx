@@ -21,7 +21,7 @@ export default async function AdminCashierDetailPage({ params, searchParams }: {
   const settlementsPage = pageNumber(query.settlementsPage);
   const cashier = await authPrisma.user.findFirst({
     where: { id: cashierId, role: "CASHIER" },
-    select: { id: true, username: true, fullName: true, whatsapp: true, city: true, address: true, referencePoint: true, status: true, commissionRateBasisPoints: true, createdAt: true },
+    select: { id: true, username: true, fullName: true, whatsapp: true, status: true, commissionRateBasisPoints: true, createdAt: true },
   });
   if (!cashier) notFound();
   const latestSettlement = await authPrisma.cashierSettlement.findFirst({ where: { cashierId }, orderBy: { settledAt: "desc" }, select: { settledAt: true } });
@@ -93,9 +93,6 @@ export default async function AdminCashierDetailPage({ params, searchParams }: {
         <span className="feature-label">Dados do cambista</span>
         <h2>{cashier.fullName || cashier.username}</h2>
         <p>Usuário: {cashier.username} · WhatsApp: {cashier.whatsapp || "Não informado"}</p>
-        <p>Cidade: {cashier.city || "Não informada"}</p>
-        <p>Endereço: {cashier.address || "Não informado"}</p>
-        <p>Ponto de referência: {cashier.referencePoint || "Não informado"}</p>
         <p>Status: {cashier.status === "ACTIVE" ? "Ativo" : cashier.status === "BLOCKED" ? "Bloqueado" : "Pendente"} · Comissão atual: {(cashier.commissionRateBasisPoints / 100).toLocaleString("pt-BR")}%</p>
         <p>Cadastro: {cashier.createdAt.toLocaleString("pt-BR")}</p>
       </section>

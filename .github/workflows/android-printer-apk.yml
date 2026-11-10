@@ -1,0 +1,94 @@
+name: Android printer APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/superquina-rawbt-rebuild
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/modules/printing/**"
+      - "src/components/receipts/**"
+      - "plugins/superquina-printer/**"
+      - "capacitor.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/android-printer-apk.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma client
+        # Prisma 7 loads DATABASE_URL while reading prisma.config.ts, even though
+        # client generation does not connect to a database. Use a local-only
+        # placeholder; never expose production database credentials in this APK job.
+        env:
+          DATABASE_URL: postgresql://build:build@127.0.0.1:5432/superquina_build
+        run: npm run db:generate
+
+      - name: TypeScript validation
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Printer and receipt tests
+        run: >-
+          npm test --
+          src/modules/printing/escpos/encode-thermal-receipt.test.ts
+          src/modules/printing/print-job-service.test.ts
+          src/app/api/player/purchases/[purchaseId]/receipt/route.test.ts
+          src/app/api/public/receipt-verification/[receiptCode]/route.test.ts
+          src/components/receipts/receipt-qr.test.ts
+          src/components/receipts/thermal-receipt.test.ts
+
+      - name: Prepare Capacitor web directory
+        run: |
+          mkdir -p www
+          printf '<!doctype html><html><head><meta charset="utf-8"></head><body>Super Quina</body></html>' > www/index.html
+
+      - name: Create Android project
+        run: npx cap add android
+
+      - name: Sync Capacitor and local printer plugin
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: super-quina-android-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

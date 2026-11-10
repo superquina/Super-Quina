@@ -9,8 +9,11 @@ const routeByRole: Record<Role, string> = { PLAYER: "/player", CASHIER: "/cashie
 export async function requireRole(role: Role) {
   const cookieStore = await cookies();
   const user = await getSessionUser(cookieStore.get(SESSION_COOKIE)?.value);
-  if (!user) redirect("/login");
-  if (user.mustChangePassword) redirect("/login?reason=password-change-required");
-  if (user.role !== role) redirect(routeByRole[user.role as Role] ?? "/login");
+  if (!user) redirect(role === "CASHIER" ? "/cashier-app-login" : "/login");
+  if (user.mustChangePassword) redirect("/change-password");
+  if (user.role !== role) {
+    if (role === "CASHIER") redirect("/cashier-app-login");
+    redirect(routeByRole[user.role as Role] ?? "/login");
+  }
   return user;
 }

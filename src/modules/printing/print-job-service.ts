@@ -7,6 +7,7 @@ export type PrintJobFailureCode =
   | "CONNECTION_FAILED"
   | "WRITE_FAILED"
   | "ENCODING_FAILED"
+  | "RECEIPT_UNAVAILABLE"
   | "UNKNOWN_TRANSPORT_RESULT";
 
 export class PrintJobServiceError extends Error {

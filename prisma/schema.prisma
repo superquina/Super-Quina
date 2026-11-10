@@ -98,10 +98,6 @@ model User {
   username              String        @unique
   fullName              String?
   whatsapp              String?
-  city                  String?
-  address               String?
-  referencePoint        String?
-  suppliesMaterial      Boolean       @default(false)
   commissionRateBasisPoints Int       @default(0)
   passwordHash          String
   role                  UserRole      @default(PLAYER)

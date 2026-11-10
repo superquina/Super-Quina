@@ -16,13 +16,19 @@ export type EscPosProfile = {
   paperWidthMm: 58 | 80;
   /** Printable character columns measured/selected for this printer profile. */
   columns: number;
+  /** ESC/POS built-in font selection; A is wider, B is narrower. */
+  fontMode?: "A" | "B";
   /** Optional ESC t code-page selector. Omit unless verified for the printer. */
   codePageCommand?: number;
   /** Explicit Unicode-to-single-byte mapping verified for the selected printer. */
   characterMap?: Readonly<Record<string, number>>;
   /** Used when a character has no verified byte mapping. */
   unsupportedCharacter?: "replace" | "transliterate";
+  /** This app intentionally supports exactly one customer copy per print job. */
+  copies?: 1;
   feedLines?: number;
+  /** Print the official receipt verification URL as an ESC/POS QR code. */
+  qrCode?: boolean;
   cutMode?: "full" | "partial";
 };
 
@@ -119,6 +125,32 @@ function wrap(value: string, columns: number): string[] {
   return lines.length ? lines : [""];
 }
 
+function dateTime(value: string): string {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    timeZone: "America/Sao_Paulo",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("day")}/${part("month")}/${part("year")} ${part("hour")}:${part("minute")}`;
+}
+
+/** ESC/POS QR sequence (GS ( k), model 2, medium error correction. */
+function qrCode(value: string): number[] {
+  const data = Array.from(new TextEncoder().encode(value));
+  if (data.length < 1 || data.length > 700) throw new Error("Invalid QR code payload");
+  const storeLength = data.length + 3;
+  return [
+    0x1d, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00,
+    0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, 0x06,
+    0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31,
+    0x1d, 0x28, 0x6b, storeLength & 0xff, (storeLength >> 8) & 0xff, 0x31, 0x50, 0x30,
+    ...data,
+    0x1d, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30,
+  ];
+}
+
 function money(cents: number): string {
   const whole = Math.floor(cents / 100);
   const fraction = String(cents % 100).padStart(2, "0");
@@ -147,6 +179,7 @@ export function encodeThermalReceipt(receipt: ThermalReceiptForEncoding, profile
   }
   assertInteger(profile.columns, "columns", 16, MAX_COLUMNS);
   if (profile.codePageCommand !== undefined) assertInteger(profile.codePageCommand, "code page command", 0, 255);
+  if (profile.copies !== undefined && profile.copies !== 1) throw new Error("Only one customer receipt copy is supported");
   const feedLines = profile.feedLines ?? 3;
   assertInteger(feedLines, "feed lines", 0, 10);
 
@@ -156,12 +189,13 @@ export function encodeThermalReceipt(receipt: ThermalReceiptForEncoding, profile
   const cashier = cleanLabel(receipt.cashierLabel, "cashier label");
   const columns = profile.columns;
   const bytes: number[] = [ESC, 0x40];
+  if (profile.fontMode !== undefined) bytes.push(ESC, 0x4d, profile.fontMode === "B" ? 0x01 : 0x00);
   if (profile.codePageCommand !== undefined) bytes.push(ESC, 0x74, profile.codePageCommand);
   bytes.push(ESC, 0x61, 0x01, ESC, 0x45, 0x01);
   bytes.push(...line("SUPER QUINA", profile));
   bytes.push(ESC, 0x45, 0x00);
   bytes.push(...line("COMPROVANTE DE APOSTA", profile));
-  bytes.push(...line(new Date(receipt.issuedAt).toISOString().slice(0, 16).replace("T", " "), profile));
+  bytes.push(...line(dateTime(receipt.issuedAt), profile));
   bytes.push(ESC, 0x61, 0x00);
   bytes.push(...line("RECIBO: " + receipt.receiptCode, profile));
   for (const part of wrap("PAGAMENTO: " + paymentMethod, columns)) bytes.push(...line(part, profile));
@@ -182,7 +216,7 @@ export function encodeThermalReceipt(receipt: ThermalReceiptForEncoding, profile
     if (!Number.isSafeInteger(entry.stakeCents) || entry.stakeCents < 0) throw new Error("Invalid stake");
     for (const part of wrap(entry.numberValue, columns)) bytes.push(...line(part, profile));
     for (const part of wrap("Rodada " + entry.roundCode, columns)) bytes.push(...line(part, profile));
-    for (const part of wrap("Sorteio " + new Date(entry.resultAt).toISOString().slice(0, 16).replace("T", " "), columns)) {
+    for (const part of wrap("Sorteio " + dateTime(entry.resultAt), columns)) {
       bytes.push(...line(part, profile));
     }
     bytes.push(...line("Valor: " + money(entry.stakeCents), profile));
@@ -199,6 +233,11 @@ export function encodeThermalReceipt(receipt: ThermalReceiptForEncoding, profile
   bytes.push(ESC, 0x45, 0x00, ESC, 0x61, 0x01);
   bytes.push(...line("GUARDE ESTE COMPROVANTE", profile));
   bytes.push(...line(receipt.receiptCode, profile));
+  if (profile.qrCode) {
+    bytes.push(ESC, 0x61, 0x01);
+    bytes.push(...qrCode("https://superquina.com/verificar-recibo/" + encodeURIComponent(receipt.receiptCode)));
+    bytes.push(0x0a, ESC, 0x61, 0x00);
+  }
   bytes.push(ESC, 0x61, 0x00);
   bytes.push(...Array.from({ length: feedLines }, () => 0x0a));
   if (profile.cutMode === "full") bytes.push(GS, 0x56, 0x00);

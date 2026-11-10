@@ -12,6 +12,7 @@ const failureCodes = new Set([
   "CONNECTION_FAILED",
   "WRITE_FAILED",
   "ENCODING_FAILED",
+  "RECEIPT_UNAVAILABLE",
   "UNKNOWN_TRANSPORT_RESULT",
 ]);
 
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       jobId,
       nextStatus: nextStatus as "SENDING" | "SENT" | "FAILED" | "UNKNOWN",
       deviceName: value.deviceName as string | null | undefined,
-      errorCode: value.errorCode as "PERMISSION_DENIED" | "DEVICE_UNAVAILABLE" | "CONNECTION_FAILED" | "WRITE_FAILED" | "ENCODING_FAILED" | "UNKNOWN_TRANSPORT_RESULT" | null | undefined,
+      errorCode: value.errorCode as "PERMISSION_DENIED" | "DEVICE_UNAVAILABLE" | "CONNECTION_FAILED" | "WRITE_FAILED" | "ENCODING_FAILED" | "RECEIPT_UNAVAILABLE" | "UNKNOWN_TRANSPORT_RESULT" | null | undefined,
     });
     return NextResponse.json({
       job: { id: updated.id, status: updated.status, purpose: updated.purpose, completedAt: updated.completedAt },
