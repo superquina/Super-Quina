@@ -1,0 +1,45 @@
+{
+  "name": "super-quina",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma validate && prisma generate && next build",
+    "start": "prisma migrate deploy && npm run admin:provision && next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:validate": "prisma validate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "test:postgres": "vitest run src/lib/auth/login-rate-limit.postgres.integration.test.ts src/modules/rounds/round-lifecycle.postgres.integration.test.ts src/modules/payments/pix-terminal-race.postgres.integration.test.ts src/modules/payments/webhook-event-claim.postgres.integration.test.ts src/modules/purchases/allocate-paid-purchases.postgres.integration.test.ts src/modules/wallet/withdrawal-concurrency.postgres.integration.test.ts src/modules/cashier-settlement-concurrency.postgres.integration.test.ts",
+    "admin:provision": "npx --yes tsx@4.20.6 scripts/provision-admin.mjs",
+    "admin:recover": "node scripts/recover-admin.mjs"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "dotenv": "^17.2.3",
+    "next": "16.4.3",
+    "pg": "^8.16.3",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^4.1.5",
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.6",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.13",
+    "eslint": "^9.35.0",
+    "eslint-config-next": "16.4.3",
+    "prisma": "7.10.1",
+    "typescript": "^5.9.2",
+    "vitest": "^5.0.5"
+  }
+}
